@@ -40,8 +40,8 @@ describe("humidex input validation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Out-of-range relative humidity returns NaN. pythermalcomfort 3.9.3 raises
-// ValueError for the same inputs.
+// Relative humidity outside [0, 100] is physically invalid and throws
+// RangeError, matching pythermalcomfort 3.9.3 (which raises ValueError).
 // ---------------------------------------------------------------------------
 describe("humidex out-of-range relative humidity", () => {
   test.each([
@@ -49,10 +49,8 @@ describe("humidex out-of-range relative humidity", () => {
     ["rh well below 0", 25, -25],
     ["rh just above 100", 25, 100.1],
     ["rh well above 100", 25, 150],
-  ])("returns NaN when %s", (_, tdb, rh) => {
-    const result = humidex(tdb, rh);
-    expect(result.humidex).toBeNaN();
-    expect(result.discomfort).toBeNaN();
+  ])("throws RangeError when %s", (_, tdb, rh) => {
+    expect(() => humidex(tdb, rh)).toThrow(RangeError);
   });
 
   test.each([
