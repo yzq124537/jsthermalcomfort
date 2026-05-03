@@ -18,6 +18,9 @@ import { round, validateInputs } from "../utilities/utilities.js";
  * Humidex differs from the heat index in being related to the dew point
  * rather than relative humidity {@link #ref_15|[15]}.
  *
+ * Relative humidity outside [0, 100] returns
+ * `{ humidex: NaN, discomfort: NaN }`.
+ *
  * @public
  * @memberof models
  * @docname Humidex
@@ -43,6 +46,10 @@ const HUMIDEX_SCHEMA = {
 
 export function humidex(tdb, rh, options = { round: true }) {
   validateInputs({ tdb, rh, round: options.round }, HUMIDEX_SCHEMA);
+
+  if (rh < 0 || rh > 100) {
+    return { humidex: NaN, discomfort: NaN };
+  }
 
   let hi =
     tdb +
