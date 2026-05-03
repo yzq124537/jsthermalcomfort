@@ -1,5 +1,9 @@
 All notable changes to this project will be documented in this file.
 
+## 2.0.0 (TBD)
+
+- `heat_index` now returns `{ hi: NaN }` by default when `tdb < 27 °C`, matching `pythermalcomfort` 3.9.3 `heat_index_rothfusz`. IP mode uses the equivalent threshold, `tdb < 80.6 °F`, so the same physical temperature is accepted or rejected regardless of unit system. This is a breaking change compared with previous versions; callers needing the previous behaviour should pass `{ limit_inputs: false }`.
+
 ## 1.2.0
 
 - Removed `check_standard_compliance_array` from public exports. This is a breaking change for consumers that imported the array helper directly. Internal callers (`adaptive_ashrae`, `pmv_ppd`, `set_tmp`, `use_fans_heatwaves`) have been migrated to the scalar `check_standard_compliance` helper, which now also covers the ASHRAE `airspeed_control` cross-field check (pass `airspeed_control: false` to enable) and the `FAN_HEATWAVES` standard.
