@@ -189,6 +189,7 @@ export function pmv_ppd(
 
   // Checks that inputs are within the bounds accepted by the model if not return NaN
   if (kwargs.limit_inputs) {
+    // ISO 7730 limits PMV applicability to [-2, 2]; ASHRAE 55 has no equivalent output bound
     const pmv_outside_iso_range =
       standard === "ISO" && valid_range([pmv], [-2, 2]).includes(NaN);
 
