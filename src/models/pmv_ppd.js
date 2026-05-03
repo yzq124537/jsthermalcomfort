@@ -189,16 +189,10 @@ export function pmv_ppd(
 
   // Checks that inputs are within the bounds accepted by the model if not return NaN
   if (kwargs.limit_inputs) {
-    const pmv_valid =
-      standard === "ASHRAE"
-        ? valid_range([pmv], [-100, 100])
-        : valid_range([pmv], [-2, 2]); // this is the ISO limit
+    const pmv_outside_iso_range =
+      standard === "ISO" && valid_range([pmv], [-2, 2]).includes(NaN);
 
-    if (
-      isNaN(pmv) ||
-      compliance_warnings.length > 0 ||
-      pmv_valid.includes(NaN)
-    ) {
+    if (isNaN(pmv) || compliance_warnings.length > 0 || pmv_outside_iso_range) {
       pmv = NaN;
       ppd = NaN;
     }
