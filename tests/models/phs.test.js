@@ -122,6 +122,14 @@ describe("phs input validation", () => {
     ).toThrow(TypeError);
   });
 
+  test("throws TypeError if kwargs.limit_inputs is not a boolean", () => {
+    expect(() =>
+      phs(40, 40, 0.3, 33.85, 2.5, 0.5, "standing", 0, "7933-2023", {
+        limit_inputs: "true",
+      }),
+    ).toThrow(TypeError);
+  });
+
   test("throws Error if posture is an invalid string", () => {
     expect(() => phs(40, 40, 0.3, 33.85, 2.5, 0.5, "invalid")).toThrow(Error);
   });
@@ -159,5 +167,143 @@ describe("phs input validation", () => {
         drink: 2,
       }),
     ).toThrow(Error);
+  });
+
+  test.each([
+    ["acclimatized", { acclimatized: 50 }],
+    ["acclimatized", { acclimatized: 75 }],
+  ])("throws Error if kwargs.%s is not in {0, 100}", (_, kwargs) => {
+    expect(() =>
+      phs(40, 40, 0.3, 33.85, 2.5, 0.5, "standing", 0, "7933-2023", kwargs),
+    ).toThrow(Error);
+  });
+
+  test.each([
+    ["weight=0", { weight: 0 }],
+    ["weight=-1", { weight: -1 }],
+    ["weight=1001", { weight: 1001 }],
+    ["t_sk_t_cr_wg=-0.1", { t_sk_t_cr_wg: -0.1 }],
+    ["t_sk_t_cr_wg=1.1", { t_sk_t_cr_wg: 1.1 }],
+    ["sweat_rate_watt=-1", { sweat_rate_watt: -1 }],
+    ["evap_load_wm2_min=-1", { evap_load_wm2_min: -1 }],
+  ])("throws RangeError if kwargs.%s is out of range", (_, kwargs) => {
+    expect(() =>
+      phs(40, 40, 0.3, 33.85, 2.5, 0.5, "standing", 0, "7933-2023", kwargs),
+    ).toThrow(RangeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scalar tests — out-of-range inputs return all NaN
+// ---------------------------------------------------------------------------
+describe("phs scalar tests — inputs outside ISO 7933 applicability limits return all NaN", () => {
+  const NAN_RESULT_KEYS = [
+    "t_re",
+    "t_sk",
+    "t_cr",
+    "t_cr_eq",
+    "t_sk_t_cr_wg",
+    "d_lim_loss_50",
+    "d_lim_loss_95",
+    "d_lim_t_re",
+    "sweat_rate_watt",
+    "sweat_loss_g",
+    "evap_load_wm2_min",
+  ];
+
+  test("returns all NaN when tdb is below ISO 7933 lower limit (< 15)", () => {
+    const result = phs(10, 40, 0.3, 33.85, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when tdb is above ISO 7933 upper limit (> 50)", () => {
+    const result = phs(55, 55, 0.3, 33.85, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when v is above ISO 7933 upper limit (> 3)", () => {
+    const result = phs(40, 40, 5, 33.85, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when tr is below ISO 7933 lower limit (< 0)", () => {
+    const result = phs(40, -5, 0.3, 33.85, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when tr is above ISO 7933 upper limit (> 60)", () => {
+    const result = phs(40, 65, 0.3, 33.85, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when rh produces p_a above ISO 7933 upper limit", () => {
+    // tdb=40: rh_max ≈ 61%, rh=90 pushes p_a above 4.5 kPa
+    const result = phs(40, 40, 0.3, 90, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when met is below ISO 7933 lower limit", () => {
+    const result = phs(40, 40, 0.3, 33.85, 0.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when met is above ISO 7933 upper limit", () => {
+    const result = phs(40, 40, 0.3, 33.85, 8, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when clo is below ISO 7933 lower limit (< 0.1)", () => {
+    const result = phs(40, 40, 0.3, 33.85, 2.5, 0.05, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns all NaN when clo is above ISO 7933 upper limit (> 1)", () => {
+    const result = phs(40, 40, 0.3, 33.85, 2.5, 1.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("valid inputs return finite results", () => {
+    const result = phs(40, 40, 0.3, 33.85, 2.5, 0.5, "standing");
+    NAN_RESULT_KEYS.forEach((key) =>
+      expect(Number.isFinite(result[key])).toBe(true),
+    );
+  });
+
+  test("returns all NaN when out-of-range with limit_inputs=true", () => {
+    const result = phs(
+      10,
+      40,
+      0.3,
+      33.85,
+      2.5,
+      0.5,
+      "standing",
+      0,
+      "7933-2023",
+      {
+        limit_inputs: true,
+      },
+    );
+    NAN_RESULT_KEYS.forEach((key) => expect(result[key]).toBeNaN());
+  });
+
+  test("returns finite results when out-of-range with limit_inputs=false", () => {
+    const result = phs(
+      10,
+      40,
+      0.3,
+      33.85,
+      2.5,
+      0.5,
+      "standing",
+      0,
+      "7933-2023",
+      {
+        limit_inputs: false,
+      },
+    );
+    NAN_RESULT_KEYS.forEach((key) =>
+      expect(Number.isFinite(result[key])).toBe(true),
+    );
   });
 });

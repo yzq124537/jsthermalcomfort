@@ -320,16 +320,13 @@ function _iso7933_compliance(kwargs) {
 
   const p_sat_result = p_sat(kwargs.tdb);
   const p_a = ((p_sat_result / 1000) * kwargs.rh) / 100;
-  const rh_max = (4.5 * 100 * 1000) / p_sat_result;
 
-  if (p_a > rh_max || p_a < 0)
+  if (p_a > 4.5 || p_a < 0)
     warnings.push(
-      `ISO 7933:2004 rh applicability limits between 0 and ${rh_max} %`,
+      "ISO 7933:2004 p_a applicability limits between 0 and 4.5 kPa",
     );
-  if (kwargs.tr - kwargs.tdb > 60 || kwargs.tr - kwargs.tdb < 0)
-    warnings.push(
-      "ISO 7933:2004 t_r - t_db applicability limits between 0 and 60 ºC",
-    );
+  if (kwargs.tr > 60 || kwargs.tr < 0)
+    warnings.push("ISO 7933:2004 tr applicability limits between 0 and 60 ºC");
   if (kwargs.v > 3 || kwargs.v < 0)
     warnings.push(
       "ISO 7933:2004 air speed applicability limits between 0 and 3 m/s",
@@ -925,6 +922,21 @@ export const validateInputs = (params, schema) => {
           `"${key}" must be one of: ${rules.enum.map((v) => `'${v}'`).join(", ")}`,
         );
       }
+    }
+    if (rules.min !== undefined && value < rules.min) {
+      throw new RangeError(
+        `Parameter "${key}" must be >= ${rules.min}, got ${value}`,
+      );
+    }
+    if (rules.max !== undefined && value > rules.max) {
+      throw new RangeError(
+        `Parameter "${key}" must be <= ${rules.max}, got ${value}`,
+      );
+    }
+    if (rules.exclusiveMin !== undefined && value <= rules.exclusiveMin) {
+      throw new RangeError(
+        `Parameter "${key}" must be > ${rules.exclusiveMin}, got ${value}`,
+      );
     }
   }
 };

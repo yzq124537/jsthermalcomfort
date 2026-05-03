@@ -7,6 +7,7 @@ import {
   running_mean_outdoor_temperature,
   f_svv,
   valid_range,
+  check_standard_compliance,
   check_standard_compliance_array,
   clo_typical_ensembles,
   transpose_sharp_altitude,
@@ -596,5 +597,98 @@ describe("validateInputs", () => {
         ),
       ).not.toThrow();
     });
+  });
+
+  describe("min / max / exclusiveMin", () => {
+    test("throws RangeError when value is below min", () => {
+      expect(() =>
+        validateInputs({ x: -1 }, { x: { type: "number", min: 0 } }),
+      ).toThrow(RangeError);
+    });
+
+    test("does not throw when value equals min", () => {
+      expect(() =>
+        validateInputs({ x: 0 }, { x: { type: "number", min: 0 } }),
+      ).not.toThrow();
+    });
+
+    test("throws RangeError when value is above max", () => {
+      expect(() =>
+        validateInputs({ x: 1001 }, { x: { type: "number", max: 1000 } }),
+      ).toThrow(RangeError);
+    });
+
+    test("does not throw when value equals max", () => {
+      expect(() =>
+        validateInputs({ x: 1000 }, { x: { type: "number", max: 1000 } }),
+      ).not.toThrow();
+    });
+
+    test("throws RangeError when value equals exclusiveMin", () => {
+      expect(() =>
+        validateInputs({ x: 0 }, { x: { type: "number", exclusiveMin: 0 } }),
+      ).toThrow(RangeError);
+    });
+
+    test("does not throw when value is above exclusiveMin", () => {
+      expect(() =>
+        validateInputs({ x: 0.1 }, { x: { type: "number", exclusiveMin: 0 } }),
+      ).not.toThrow();
+    });
+
+    test("validates interval [min, max] — rejects both ends out of range", () => {
+      const schema = { x: { type: "number", min: 0, max: 1 } };
+      expect(() => validateInputs({ x: -0.1 }, schema)).toThrow(RangeError);
+      expect(() => validateInputs({ x: 1.1 }, schema)).toThrow(RangeError);
+      expect(() => validateInputs({ x: 0.5 }, schema)).not.toThrow();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// check_standard_compliance ISO7933
+// ---------------------------------------------------------------------------
+describe("check_standard_compliance ISO7933", () => {
+  const base = { tdb: 40, tr: 40, v: 0.3, rh: 33.85, met: 272, clo: 0.5 };
+
+  test("returns no warnings for valid inputs", () => {
+    expect(check_standard_compliance("ISO7933", base)).toHaveLength(0);
+  });
+
+  test("warns when tr < 0 (fixed: was checking tr - tdb)", () => {
+    const warnings = check_standard_compliance("ISO7933", {
+      ...base,
+      tr: -5,
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings[0]).toMatch(/tr/i);
+  });
+
+  test("warns when tr > 60 (fixed: was checking tr - tdb)", () => {
+    const warnings = check_standard_compliance("ISO7933", {
+      ...base,
+      tr: 65,
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings[0]).toMatch(/tr/i);
+  });
+
+  test("does not warn when tr < tdb but tr is within [0, 60]", () => {
+    // tr=20 < tdb=40, old buggy check (tr-tdb < 0) would have warned
+    const warnings = check_standard_compliance("ISO7933", {
+      ...base,
+      tr: 20,
+    });
+    expect(warnings).toHaveLength(0);
+  });
+
+  test("warns when p_a > 4.5 kPa (fixed: was comparing kPa against %)", () => {
+    // tdb=40, rh=90 → p_a ≈ 6.6 kPa > 4.5
+    const warnings = check_standard_compliance("ISO7933", {
+      ...base,
+      rh: 90,
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings[0]).toMatch(/p_a/i);
   });
 });
