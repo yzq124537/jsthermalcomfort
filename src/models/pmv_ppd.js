@@ -1,5 +1,5 @@
 import {
-  check_standard_compliance_array,
+  check_standard_compliance,
   round,
   units_converter,
   valid_range,
@@ -167,18 +167,12 @@ export function pmv_ppd(
     ({ tdb, tr, vr } = units_converter({ tdb, tr, vr }, "IP"));
   }
 
-  const {
-    tdb: tdb_valid,
-    tr: tr_valid,
-    v: v_valid,
-    met: met_valid,
-    clo: clo_valid,
-  } = check_standard_compliance_array(standard, {
-    tdb: [tdb],
-    tr: [tr],
-    v: [vr],
-    met: [met],
-    clo: [clo],
+  const compliance_warnings = check_standard_compliance(standard, {
+    tdb,
+    tr,
+    v: vr,
+    met,
+    clo,
     airspeed_control: kwargs.airspeed_control,
   });
   let ce = 0;
@@ -199,20 +193,11 @@ export function pmv_ppd(
 
   // Checks that inputs are within the bounds accepted by the model if not return NaN
   if (kwargs.limit_inputs) {
-    const pmv_valid =
-      standard === "ASHRAE"
-        ? valid_range([pmv], [-100, 100])
-        : valid_range([pmv], [-2, 2]); // this is the ISO limit
+    // ISO 7730 limits PMV applicability to [-2, 2]; ASHRAE 55 has no equivalent output bound
+    const pmv_outside_iso_range =
+      standard === "ISO" && valid_range([pmv], [-2, 2]).includes(NaN);
 
-    if (
-      isNaN(pmv) ||
-      tdb_valid.includes(NaN) ||
-      tr_valid.includes(NaN) ||
-      v_valid.includes(NaN) ||
-      met_valid.includes(NaN) ||
-      clo_valid.includes(NaN) ||
-      pmv_valid.includes(NaN)
-    ) {
+    if (isNaN(pmv) || compliance_warnings.length > 0 || pmv_outside_iso_range) {
       pmv = NaN;
       ppd = NaN;
     }
