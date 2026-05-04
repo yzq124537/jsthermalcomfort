@@ -21,12 +21,9 @@ describe("wbgt", () => {
   });
 
   it("should throw an error when with_solar_load is set and tdb is not provided", () => {
-    try {
-      wbgt(0, 0, { with_solar_load: true });
-    } catch (error) {
-      // Verify specific error message
-      expect(error.message).toBe("Please enter the dry bulb air temperature");
-    }
+    expect(() => wbgt(0, 0, { with_solar_load: true })).toThrow(
+      "Please enter the dry bulb air temperature",
+    );
   });
 
   it("round_output:true returns value rounded to 1 decimal place", () => {

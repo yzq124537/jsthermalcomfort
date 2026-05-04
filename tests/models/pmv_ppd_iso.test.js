@@ -3,18 +3,25 @@
 import { describe, expect, test } from "@jest/globals";
 import { pmv_ppd_iso } from "../../src/models/pmv_ppd_iso.js";
 import { testDataUrls } from "./comftest";
-import { loadTestData, validateResult } from "./testUtils.js";
+import {
+  assertNonEmptyRows,
+  loadTestData,
+  validateResult,
+} from "./testUtils.js";
 
 // Load test data from the shared repository (filters out array-input rows).
 let { testData, tolerances } = await loadTestData(testDataUrls.pmvPpd, false);
 
 // Keep only scalar SI ISO rows.
-const isoData = testData.data.filter((testCase) => {
-  const { standard, units } = testCase.inputs;
-  const isISO = standard === "ISO";
-  const isSI = !units || units.toLowerCase() === "si";
-  return isISO && isSI;
-});
+const isoData = assertNonEmptyRows(
+  testData.data.filter((testCase) => {
+    const { standard, units } = testCase.inputs;
+    const isISO = standard === "ISO";
+    const isSI = !units || units.toLowerCase() === "si";
+    return isISO && isSI;
+  }),
+  "pmv_ppd_iso scalar SI ISO rows",
+);
 
 describe("pmv_ppd_iso", () => {
   test.each(isoData)("ISO test case #%#", (testCase) => {

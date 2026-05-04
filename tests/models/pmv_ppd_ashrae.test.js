@@ -3,18 +3,25 @@
 import { describe, expect, test } from "@jest/globals";
 import { pmv_ppd_ashrae } from "../../src/models/pmv_ppd_ashrae.js";
 import { testDataUrls } from "./comftest";
-import { loadTestData, validateResult } from "./testUtils.js";
+import {
+  assertNonEmptyRows,
+  loadTestData,
+  validateResult,
+} from "./testUtils.js";
 
 // Load test data from the shared repository (filters out array-input rows).
 let { testData, tolerances } = await loadTestData(testDataUrls.pmvPpd, false);
 
 // Keep only scalar SI ASHRAE rows.
-const ashraeData = testData.data.filter((testCase) => {
-  const { standard, units } = testCase.inputs;
-  const isAshrae = standard === "ASHRAE";
-  const isSI = !units || units.toLowerCase() === "si";
-  return isAshrae && isSI;
-});
+const ashraeData = assertNonEmptyRows(
+  testData.data.filter((testCase) => {
+    const { standard, units } = testCase.inputs;
+    const isAshrae = standard === "ASHRAE";
+    const isSI = !units || units.toLowerCase() === "si";
+    return isAshrae && isSI;
+  }),
+  "pmv_ppd_ashrae scalar SI ASHRAE rows",
+);
 
 describe("pmv_ppd_ashrae", () => {
   test.each(ashraeData)("ASHRAE test case #%#", (testCase) => {
