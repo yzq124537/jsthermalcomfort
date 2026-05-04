@@ -62,12 +62,6 @@ export async function loadTestData(url, returnArray = false) {
   return { testData, tolerances };
 }
 
-// Check if the test should be skipped (if it contains array data)
-export function shouldSkipTest(inputs) {
-  const values = Object.values(inputs);
-  return values.some((value) => Array.isArray(value));
-}
-
 /**
  * Validates the model's output against the expected outputs using specified tolerances.
  *

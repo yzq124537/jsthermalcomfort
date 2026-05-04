@@ -9,7 +9,6 @@
 import { describe, expect, test } from "@jest/globals";
 import {
   validateResult,
-  shouldSkipTest,
   filterScalarRows,
   assertNonEmptyRows,
 } from "./testUtils.js";
@@ -153,29 +152,6 @@ describe("validateResult — non-numeric comparison", () => {
     expect(() =>
       validateResult({ a: "strong" }, { a: "moderate" }, {}, {}),
     ).toThrow();
-  });
-});
-
-describe("shouldSkipTest", () => {
-  test("returns true when any value is an array", () => {
-    expect.hasAssertions();
-    expect(shouldSkipTest({ tdb: 25, v: [0.1, 0.2] })).toBe(true);
-  });
-
-  test("returns true when all values are arrays", () => {
-    expect.hasAssertions();
-    expect(shouldSkipTest({ tdb: [25, 26], v: [0.1, 0.2] })).toBe(true);
-  });
-
-  test("returns false when all values are scalar", () => {
-    expect.hasAssertions();
-    expect(shouldSkipTest({ tdb: 25, rh: 50, v: 0.1 })).toBe(false);
-  });
-
-  test("returns false for empty inputs object", () => {
-    expect.hasAssertions();
-    // No values means no array values; the predicate is vacuously false.
-    expect(shouldSkipTest({})).toBe(false);
   });
 });
 
