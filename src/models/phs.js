@@ -117,21 +117,22 @@ const PHS_SCHEMA = {
   i_mst: { type: "number" },
   a_p: { type: "number" },
   drink: { enum: [0, 1] },
-  weight: { type: "number" },
+  weight: { type: "number", exclusiveMin: 0, max: 1000 },
   height: { type: "number" },
   walk_sp: { type: "number" },
   theta: { type: "number" },
-  acclimatized: { type: "number" },
+  acclimatized: { type: "number", enum: [0, 100] },
   duration: { type: "number" },
   f_r: { type: "number" },
   t_sk: { type: "number" },
   t_cr: { type: "number" },
   t_re: { type: "number" },
   t_cr_eq: { type: "number" },
-  t_sk_t_cr_wg: { type: "number" },
-  sweat_rate_watt: { type: "number" },
-  evap_load_wm2_min: { type: "number" },
+  t_sk_t_cr_wg: { type: "number", min: 0, max: 1 },
+  sweat_rate_watt: { type: "number", min: 0 },
+  evap_load_wm2_min: { type: "number", min: 0 },
   round: { type: "boolean", required: false },
+  limit_inputs: { type: "boolean", required: false },
 };
 
 export function phs(
@@ -165,6 +166,7 @@ export function phs(
     sweat_rate_watt: 0,
     evap_load_wm2_min: 0,
     round: true,
+    limit_inputs: true,
   };
   let joint_kwargs = Object.assign(defaults_kwargs, kwargs);
   joint_kwargs.t_re = joint_kwargs.t_re || joint_kwargs.t_cr;
@@ -207,6 +209,7 @@ export function phs(
       sweat_rate_watt: joint_kwargs.sweat_rate_watt,
       evap_load_wm2_min: joint_kwargs.evap_load_wm2_min,
       round: joint_kwargs.round,
+      limit_inputs: joint_kwargs.limit_inputs,
     },
     PHS_SCHEMA,
   );
@@ -222,7 +225,22 @@ export function phs(
     met: met_watt * body_surface_area(joint_kwargs.weight, joint_kwargs.height),
     clo,
   });
-  warnings.forEach((warning) => console.warn(warning));
+  if (warnings.length > 0 && joint_kwargs.limit_inputs) {
+    warnings.forEach((warning) => console.warn(warning));
+    return {
+      t_re: NaN,
+      t_sk: NaN,
+      t_cr: NaN,
+      t_cr_eq: NaN,
+      t_sk_t_cr_wg: NaN,
+      d_lim_loss_50: NaN,
+      d_lim_loss_95: NaN,
+      d_lim_t_re: NaN,
+      sweat_rate_watt: NaN,
+      sweat_loss_g: NaN,
+      evap_load_wm2_min: NaN,
+    };
+  }
 
   let p_a;
   if (model === "7933-2023") {
