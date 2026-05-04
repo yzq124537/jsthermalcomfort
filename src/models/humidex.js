@@ -18,6 +18,9 @@ import { round, validateInputs } from "../utilities/utilities.js";
  * Humidex differs from the heat index in being related to the dew point
  * rather than relative humidity {@link #ref_15|[15]}.
  *
+ * Relative humidity outside [0, 100] is physically invalid and throws a
+ * `RangeError`.
+ *
  * @public
  * @memberof models
  * @docname Humidex
@@ -27,6 +30,8 @@ import { round, validateInputs } from "../utilities/utilities.js";
  * @param {object} [options] - configuration options for the function.
  * @param {boolean} [options.round = true] - If true, rounds output value. If
  * false, it does not.
+ *
+ * @throws {RangeError} when `rh` is outside `[0, 100]`.
  *
  * @returns {HumidexResult} the result given the provided temperature and
  * relative humidity.
@@ -43,6 +48,10 @@ const HUMIDEX_SCHEMA = {
 
 export function humidex(tdb, rh, options = { round: true }) {
   validateInputs({ tdb, rh, round: options.round }, HUMIDEX_SCHEMA);
+
+  if (rh < 0 || rh > 100) {
+    throw new RangeError("Relative humidity must be between 0 and 100%");
+  }
 
   let hi =
     tdb +

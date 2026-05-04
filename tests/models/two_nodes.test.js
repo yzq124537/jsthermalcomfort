@@ -1,5 +1,5 @@
 import { expect, describe, test, it } from "@jest/globals";
-import { loadTestData, validateResult } from "./testUtils";
+import { assertNonEmptyRows, loadTestData, validateResult } from "./testUtils";
 import { two_nodes } from "../../src/models/two_nodes";
 import { testDataUrls } from "./comftest"; // Import all test URLs from comftest.js
 
@@ -11,12 +11,15 @@ const { testData, tolerances } = await loadTestData(testDataUrl, false);
 
 // Skip rows with missing outputs or array-valued inputs; keep original
 // dataset index so failures are reported as "row N" matching the JSON file.
-const scalarRows = testData.data
-  .map((row, index) => ({ ...row, index }))
-  .filter(({ inputs, outputs }) => {
-    if (outputs === undefined || outputs === null) return false;
-    return !Object.values(inputs).some((value) => Array.isArray(value));
-  });
+const scalarRows = assertNonEmptyRows(
+  testData.data
+    .map((row, index) => ({ ...row, index }))
+    .filter(({ inputs, outputs }) => {
+      if (outputs === undefined || outputs === null) return false;
+      return !Object.values(inputs).some((value) => Array.isArray(value));
+    }),
+  "two_nodes scalar rows with outputs",
+);
 
 describe("two_nodes related tests", () => {
   test.each(scalarRows)("row $index", ({ inputs, outputs }) => {
