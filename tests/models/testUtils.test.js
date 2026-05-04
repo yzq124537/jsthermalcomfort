@@ -11,6 +11,7 @@ import {
   validateResult,
   shouldSkipTest,
   filterScalarRows,
+  assertNonEmptyRows,
 } from "./testUtils.js";
 
 describe("validateResult — silent-skip guards", () => {
@@ -206,5 +207,28 @@ describe("filterScalarRows", () => {
       { inputs: { rh: [50, 60] }, outputs: { x: 2 } },
     ];
     expect(filterScalarRows(rows)).toEqual([]);
+  });
+});
+
+describe("assertNonEmptyRows", () => {
+  test("returns the rows unchanged when non-empty", () => {
+    expect.hasAssertions();
+    const rows = [{ inputs: { tdb: 25 } }];
+    expect(assertNonEmptyRows(rows, "label")).toBe(rows);
+  });
+
+  test("throws when the array is empty (post-filter silent-skip guard)", () => {
+    expect.hasAssertions();
+    // This is the path callers like pmv_ppd_ashrae.test.js / two_nodes.test.js
+    // depend on: a fixture-drift filter that yields zero rows would otherwise
+    // hand `test.each([])` an empty list and report green.
+    expect(() => assertNonEmptyRows([], "pmv_ppd_ashrae rows")).toThrow(
+      /pmv_ppd_ashrae rows/,
+    );
+  });
+
+  test("throws when input is not an array", () => {
+    expect.hasAssertions();
+    expect(() => assertNonEmptyRows(undefined, "label")).toThrow();
   });
 });

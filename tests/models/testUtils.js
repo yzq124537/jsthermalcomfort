@@ -13,6 +13,26 @@ export function filterScalarRows(rows) {
   );
 }
 
+/**
+ * Throw if the supplied row set is empty. Callers that filter the dataset
+ * after `loadTestData` (e.g. by standard, by units) can wrap their result in
+ * this helper so a fixture drift that empties the filter shows up as a hard
+ * failure rather than a silent `test.each([])` that registers zero row tests.
+ *
+ * @param {Array} rows
+ * @param {string} label - human-readable description for the error message
+ * @returns {Array} the same rows, unchanged, when non-empty
+ */
+export function assertNonEmptyRows(rows, label) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error(
+      `${label}: 0 rows after filtering. ` +
+        `test.each([]) would register zero tests and report green.`,
+    );
+  }
+  return rows;
+}
+
 // Load test data and extract tolerance
 export async function loadTestData(url, returnArray = false) {
   let testData;
@@ -30,16 +50,14 @@ export async function loadTestData(url, returnArray = false) {
   }
 
   // If returnArray is false, filter out test cases that have array inputs.
+  // Callers iterate `testData.data`, so an empty dataset would register
+  // zero tests yet report green; assertNonEmptyRows turns that into a hard
+  // failure with a descriptive message.
   if (!returnArray && Array.isArray(testData.data)) {
-    testData.data = filterScalarRows(testData.data);
-    // Surface a silent-skip: callers iterate `testData.data`, so an empty
-    // dataset registers zero tests yet reports green.
-    if (testData.data.length === 0) {
-      throw new Error(
-        `loadTestData: 0 scalar rows after filtering (url=${url}). ` +
-          `Pass returnArray=true if the dataset is array-valued.`,
-      );
-    }
+    testData.data = assertNonEmptyRows(
+      filterScalarRows(testData.data),
+      `loadTestData scalar filter (url=${url})`,
+    );
   }
   return { testData, tolerances };
 }
