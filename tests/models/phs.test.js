@@ -7,6 +7,8 @@ import {
   validateResult,
 } from "./testUtils.js";
 
+// Validated against pythermalcomfort 3.9.3.
+
 const testDataUrl = testDataUrls.phs;
 
 // Load data at module scope so test.each registers one test per row.
