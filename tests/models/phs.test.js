@@ -1,7 +1,11 @@
 import { expect, describe, test } from "@jest/globals";
 import { phs } from "../../src/models/phs";
 import { testDataUrls } from "./comftest"; // Import test URLs from comftest.js
-import { assertNonEmptyRows, loadTestData } from "./testUtils.js";
+import {
+  assertNonEmptyRows,
+  loadTestData,
+  validateResult,
+} from "./testUtils.js";
 
 const testDataUrl = testDataUrls.phs;
 
@@ -33,25 +37,24 @@ describe("phs", () => {
       inputs,
     );
 
-    // Per-key tolerances: d_lim accumulates float boundary crossings (+/- 1.5
-    // minute), sweat_loss_g / evap_load_wm2_min accumulate larger absolute
-    // error (+/- 10), sweat_rate_watt diverges by +/- 0.3 because JS uses
-    // half-up rounding while Python uses banker's rounding.
-    for (let [key, value] of Object.entries(outputs)) {
+    // Per-key tolerance overrides: d_lim* accumulates float-boundary
+    // crossings (+/- 1.5 minute), sweat_loss_g / evap_load_wm2_min
+    // accumulate larger absolute error (+/- 10), sweat_rate_watt diverges
+    // by +/- 0.3 because JS uses half-up rounding while Python uses
+    // banker's rounding. Build a per-row tolerance map so validateResult
+    // applies the correct tolerance for each output key.
+    const perRowTolerances = { ...(tolerances ?? {}) };
+    for (const key of Object.keys(outputs)) {
       if (key.startsWith("d_lim")) {
-        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(1.5);
+        perRowTolerances[key] = 1.5;
       } else if (key === "sweat_loss_g" || key === "evap_load_wm2_min") {
-        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(10);
+        perRowTolerances[key] = 10;
       } else if (key === "sweat_rate_watt") {
-        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(0.3);
-      } else {
-        const tol =
-          tolerances && tolerances[key] !== undefined
-            ? tolerances[key]
-            : 0.0001;
-        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(tol);
+        perRowTolerances[key] = 0.3;
       }
     }
+
+    validateResult(result, outputs, perRowTolerances, inputs);
   });
 });
 
