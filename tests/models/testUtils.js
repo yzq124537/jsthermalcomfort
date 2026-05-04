@@ -1,5 +1,18 @@
 import fetch from "node-fetch"; // Import node-fetch to support data fetching
 
+/**
+ * Drop rows whose `inputs` contain any array-valued field. Pure helper so it
+ * can be unit-tested without a network round trip.
+ *
+ * @param {Array<{ inputs: Object }>} rows
+ * @returns {Array}
+ */
+export function filterScalarRows(rows) {
+  return rows.filter((row) =>
+    Object.values(row.inputs).every((value) => !Array.isArray(value)),
+  );
+}
+
 // Load test data and extract tolerance
 export async function loadTestData(url, returnArray = false) {
   let testData;
@@ -18,11 +31,15 @@ export async function loadTestData(url, returnArray = false) {
 
   // If returnArray is false, filter out test cases that have array inputs.
   if (!returnArray && Array.isArray(testData.data)) {
-    testData.data = testData.data.filter((testCase) => {
-      return Object.values(testCase.inputs).every(
-        (value) => !Array.isArray(value),
+    testData.data = filterScalarRows(testData.data);
+    // Surface a silent-skip: callers iterate `testData.data`, so an empty
+    // dataset registers zero tests yet reports green.
+    if (testData.data.length === 0) {
+      throw new Error(
+        `loadTestData: 0 scalar rows after filtering (url=${url}). ` +
+          `Pass returnArray=true if the dataset is array-valued.`,
       );
-    });
+    }
   }
   return { testData, tolerances };
 }
@@ -48,8 +65,34 @@ export function validateResult(
   tolerances,
   inputs,
 ) {
+  // Silent-skip guards. Without these, an empty/missing `expectedOutputs`
+  // makes Object.keys(...).forEach run zero assertions and the test reports
+  // green. A null/undefined `modelResult` against non-empty expectations is
+  // also treated as a hard failure rather than letting the property access
+  // throw mid-loop with a confusing TypeError.
+  if (
+    expectedOutputs === null ||
+    expectedOutputs === undefined ||
+    typeof expectedOutputs !== "object"
+  ) {
+    throw new Error(
+      "validateResult: expectedOutputs must be a non-null object.",
+    );
+  }
+  const expectedKeys = Object.keys(expectedOutputs);
+  if (expectedKeys.length === 0) {
+    throw new Error(
+      "validateResult: expectedOutputs is empty; refusing to run zero assertions.",
+    );
+  }
+  if (modelResult === null || modelResult === undefined) {
+    throw new Error(
+      "validateResult: modelResult is null/undefined but expectedOutputs has keys.",
+    );
+  }
+
   try {
-    Object.keys(expectedOutputs).forEach((key) => {
+    expectedKeys.forEach((key) => {
       const expectedValue =
         expectedOutputs[key] === null ? NaN : expectedOutputs[key];
       const actualValue = modelResult[key];
@@ -61,6 +104,9 @@ export function validateResult(
       // Handle arrays
       if (Array.isArray(expectedValue)) {
         expect(Array.isArray(actualValue)).toBe(true);
+        // Length check guards against the silent-skip where a longer actual
+        // array slips trailing elements past the per-index loop.
+        expect(actualValue).toHaveLength(expectedValue.length);
         expectedValue.forEach((exp, index) => {
           const act = actualValue[index];
           if (typeof exp === "number") {
