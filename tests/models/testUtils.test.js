@@ -83,6 +83,30 @@ describe("validateResult — numeric comparison", () => {
     expect.hasAssertions();
     expect(() => validateResult({ a: NaN }, { a: 1.0 }, {}, {})).toThrow();
   });
+
+  // JS coercion guards: null, false, numeric strings, and empty arrays all
+  // arithmetically subtract to 0 in JavaScript, so a plain Math.abs check
+  // against an expected 0/1 would silently pass. The typeof guard ensures
+  // these values fail loudly.
+  test("throws when expected is finite but actual is null (no coercion)", () => {
+    expect.hasAssertions();
+    expect(() => validateResult({ a: null }, { a: 0 }, {}, {})).toThrow();
+  });
+
+  test("throws when expected is finite but actual is false (no coercion)", () => {
+    expect.hasAssertions();
+    expect(() => validateResult({ a: false }, { a: 0 }, {}, {})).toThrow();
+  });
+
+  test("throws when expected is finite but actual is a numeric string", () => {
+    expect.hasAssertions();
+    expect(() => validateResult({ a: "1" }, { a: 1 }, {}, {})).toThrow();
+  });
+
+  test("throws when expected is finite but actual is an empty array", () => {
+    expect.hasAssertions();
+    expect(() => validateResult({ a: [] }, { a: 0 }, {}, {})).toThrow();
+  });
 });
 
 describe("validateResult — array comparison", () => {

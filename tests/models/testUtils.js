@@ -125,6 +125,10 @@ export function validateResult(
             if (isNaN(exp)) {
               expect(act).toBeNaN();
             } else {
+              // typeof guard prevents JS coercion false-passes:
+              // null - 0, false - 0, [] - 0, "1" - 1 all evaluate to a
+              // tolerable difference in plain Math.abs comparison.
+              expect(typeof act).toBe("number");
               expect(Math.abs(act - exp)).toBeLessThanOrEqual(
                 tol + Number.EPSILON * 100,
               );
@@ -138,6 +142,8 @@ export function validateResult(
         if (isNaN(expectedValue)) {
           expect(actualValue).toBeNaN();
         } else {
+          // typeof guard prevents JS coercion false-passes (see array branch).
+          expect(typeof actualValue).toBe("number");
           expect(Math.abs(actualValue - expectedValue)).toBeLessThanOrEqual(
             tol + Number.EPSILON * 100,
           );
