@@ -6,39 +6,70 @@
 // `expect.hasAssertions()` so the meta-tests cannot themselves silent-skip
 // with zero effective assertions.
 
-import { describe, expect, test } from "@jest/globals";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  jest,
+  test,
+} from "@jest/globals";
 import {
   validateResult,
   filterScalarRows,
   assertNonEmptyRows,
 } from "./testUtils.js";
 
+// validateResult logs failure context via console.log inside its catch
+// block. Meta-tests deliberately trigger throws to verify behaviour, so
+// silence the log spam here. Real model test failures still surface the
+// context because they run with the unmocked console.
+beforeEach(() => {
+  jest.spyOn(console, "log").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
 describe("validateResult — silent-skip guards", () => {
+  // The toThrow regexes match the specific guard messages, not just any
+  // throw. Without that, a regression where the guard is removed and the
+  // function falls back to a generic TypeError (e.g. Object.keys(null))
+  // would still pass these tests.
   test("throws when expectedOutputs is an empty object", () => {
     expect.hasAssertions();
-    // Without a guard, Object.keys({}).forEach runs zero assertions and
-    // validateResult returns silently — the canonical silent-skip path.
-    expect(() => validateResult({ a: 1 }, {}, {}, {})).toThrow();
+    expect(() => validateResult({ a: 1 }, {}, {}, {})).toThrow(
+      /expectedOutputs is empty/,
+    );
   });
 
   test("throws when expectedOutputs is null", () => {
     expect.hasAssertions();
-    expect(() => validateResult({ a: 1 }, null, {}, {})).toThrow();
+    expect(() => validateResult({ a: 1 }, null, {}, {})).toThrow(
+      /expectedOutputs must be a non-null object/,
+    );
   });
 
   test("throws when expectedOutputs is undefined", () => {
     expect.hasAssertions();
-    expect(() => validateResult({ a: 1 }, undefined, {}, {})).toThrow();
+    expect(() => validateResult({ a: 1 }, undefined, {}, {})).toThrow(
+      /expectedOutputs must be a non-null object/,
+    );
   });
 
   test("throws when modelResult is null but expectedOutputs is non-empty", () => {
     expect.hasAssertions();
-    expect(() => validateResult(null, { a: 1 }, {}, {})).toThrow();
+    expect(() => validateResult(null, { a: 1 }, {}, {})).toThrow(
+      /modelResult is null\/undefined/,
+    );
   });
 
   test("throws when modelResult is undefined but expectedOutputs is non-empty", () => {
     expect.hasAssertions();
-    expect(() => validateResult(undefined, { a: 1 }, {}, {})).toThrow();
+    expect(() => validateResult(undefined, { a: 1 }, {}, {})).toThrow(
+      /modelResult is null\/undefined/,
+    );
   });
 });
 
