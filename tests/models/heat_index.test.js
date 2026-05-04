@@ -29,9 +29,6 @@ describe("heat_index", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Input validation tests
-// ---------------------------------------------------------------------------
 describe("heat_index input validation", () => {
   test.each([
     ["tdb", "25", 50],
@@ -55,10 +52,7 @@ describe("heat_index input validation", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Default-on Rothfusz applicability gate (tdb < 27 °C / 80.6 °F → NaN).
 // Matches pythermalcomfort 3.9.3 heat_index_rothfusz default behaviour.
-// ---------------------------------------------------------------------------
 describe("heat_index Rothfusz applicability gate", () => {
   test.each([
     ["SI tdb just below 27", 26.9, 50, undefined],
