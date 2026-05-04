@@ -1,94 +1,57 @@
-import { expect, describe, it, test, beforeAll } from "@jest/globals";
-import fetch from "node-fetch";
+import { expect, describe, test } from "@jest/globals";
 import { phs } from "../../src/models/phs";
 import { testDataUrls } from "./comftest"; // Import test URLs from comftest.js
+import { assertNonEmptyRows, loadTestData } from "./testUtils.js";
 
 const testDataUrl = testDataUrls.phs;
 
-let testData;
-let tolerance;
+// Load data at module scope so test.each registers one test per row.
+// loadTestData filters out array-input rows; the secondary filter below
+// also drops rows whose outputs are missing or contain arrays.
+const { testData, tolerances } = await loadTestData(testDataUrl, false);
 
-beforeAll(async () => {
-  try {
-    const response = await fetch(testDataUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch test data: ${response.statusText}`);
-    }
-
-    testData = await response.json();
-    tolerance = testData.tolerance; // Retrieve tolerance from remote data
-  } catch (error) {
-    console.error("Unable to fetch or parse test data:", error);
-    throw error;
-  }
-});
+const scalarRows = assertNonEmptyRows(
+  testData.data.filter(({ outputs }) => {
+    if (outputs === undefined || outputs === null) return false;
+    return !Object.values(outputs).some((value) => Array.isArray(value));
+  }),
+  "phs scalar rows with finite outputs",
+);
 
 describe("phs", () => {
-  it("should run tests and skip data that contains arrays or undefined fields", () => {
-    if (!testData || !testData.data) {
-      throw new Error("Test data is not properly loaded");
+  test.each(scalarRows)("row #%#", ({ inputs, outputs }) => {
+    const result = phs(
+      inputs.tdb,
+      inputs.tr,
+      inputs.v,
+      inputs.rh,
+      inputs.met,
+      inputs.clo,
+      inputs.posture,
+      inputs.wme,
+      "7933-2004",
+      inputs,
+    );
+
+    // Per-key tolerances: d_lim accumulates float boundary crossings (+/- 1.5
+    // minute), sweat_loss_g / evap_load_wm2_min accumulate larger absolute
+    // error (+/- 10), sweat_rate_watt diverges by +/- 0.3 because JS uses
+    // half-up rounding while Python uses banker's rounding.
+    for (let [key, value] of Object.entries(outputs)) {
+      if (key.startsWith("d_lim")) {
+        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(1.5);
+      } else if (key === "sweat_loss_g" || key === "evap_load_wm2_min") {
+        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(10);
+      } else if (key === "sweat_rate_watt") {
+        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(0.3);
+      } else {
+        const tol =
+          tolerances && tolerances[key] !== undefined
+            ? tolerances[key]
+            : 0.0001;
+        expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(tol);
+      }
     }
-
-    testData.data.forEach(({ inputs, outputs }) => {
-      // Check for arrays or undefined values in inputs or outputs
-      const hasArrayOrUndefined =
-        Object.values(inputs).some(
-          (value) => Array.isArray(value) || value === undefined,
-        ) || Object.values(outputs).some((value) => Array.isArray(value));
-
-      if (hasArrayOrUndefined || outputs === undefined) {
-        console.warn(
-          `Skipping test due to missing or invalid inputs/outputs: inputs=${JSON.stringify(
-            inputs,
-          )}`,
-        );
-        return;
-      }
-
-      let result;
-      try {
-        result = phs(
-          inputs.tdb,
-          inputs.tr,
-          inputs.v,
-          inputs.rh,
-          inputs.met,
-          inputs.clo,
-          inputs.posture,
-          inputs.wme,
-          "7933-2004",
-          inputs,
-        );
-
-        // Compare values with field-specific tolerance
-        for (let [key, value] of Object.entries(outputs)) {
-          if (key.startsWith("d_lim")) {
-            // Allow +/- 1.5 minute due to float accumulation boundary crossing
-            expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(1.5);
-          } else if (key === "sweat_loss_g" || key === "evap_load_wm2_min") {
-            // Allow +/- 10 grams / units due to float accumulation
-            expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(10);
-          } else if (key === "sweat_rate_watt") {
-            // Allow +/- 0.3 diff since JS uses half-up rounding (266.15 -> 266.2) vs Python banker's rounding (266.1)
-            expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(0.3);
-          } else {
-            // Use the specified tolerance if available, otherwise default to a strict 0.0001
-            const tol =
-              tolerance && tolerance[key] !== undefined
-                ? tolerance[key]
-                : 0.0001;
-            expect(Math.abs(result[key] - value)).toBeLessThanOrEqual(tol);
-          }
-        }
-      } catch (error) {
-        console.error("Test failed with inputs:", inputs);
-        if (typeof result !== "undefined") {
-          console.error("Received result:", result);
-          console.error("Expected result:", outputs);
-        }
-        throw error; // Re-throw to display specific error details
-      }
-    });
   });
 });
 
